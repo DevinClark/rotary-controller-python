@@ -2,6 +2,8 @@ from keke import ktrace
 from kivy.base import EventLoop
 from kivy.logger import Logger, LOG_LEVELS
 from kivy.core.window import Window
+import platform
+import asyncio
 
 Logger.setLevel(LOG_LEVELS["debug"])
 
@@ -15,4 +17,4 @@ if __name__ == "__main__":
     from rcp.app import MainApp
     # Monkeypatch to add more trace events
     EventLoop.idle = ktrace()(EventLoop.idle)
-    MainApp().run()
+    asyncio.run(MainApp().async_run())

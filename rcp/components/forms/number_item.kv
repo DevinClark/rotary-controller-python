@@ -1,6 +1,6 @@
 <NumberItem>:
   value: 0
-  height: 36
+  height: 60
   size_hint_y: None
   BoxLayout:
     orientation: "horizontal"
@@ -17,4 +17,4 @@
       size_hint_x: None
       width: 250
       text: str(root.value)
-      on_release: Factory.Keypad().show(root, 'value')
+      on_release: Factory.Keypad(integer=root.integer).show(root, 'value')

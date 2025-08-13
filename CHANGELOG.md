@@ -1,48 +1,31 @@
 # CHANGELOG
 
 
-## v1.0.8 (2025-04-11)
+## v1.0.10-rc.4 (2024-12-17)
+
+
+## v1.0.10-rc.3 (2024-12-17)
+
+### Bug Fixes
+
+- Rename and cleanup cicd
+  ([`9bbc43f`](https://github.com/bartei/rotary-controller-python/commit/9bbc43fb808b4b36980be2462060021ae3f80fa2))
+
+
+## v1.0.10-rc.2 (2024-12-17)
+
+### Bug Fixes
+
+- Add token for action
+  ([`85988bb`](https://github.com/bartei/rotary-controller-python/commit/85988bbfeb7fb239b453ca911db020b67e88010a))
+
+
+## v1.0.10-rc.1 (2024-12-16)
 
 ### Bug Fixes
 
 - Add lock file
   ([`66dcc5a`](https://github.com/bartei/rotary-controller-python/commit/66dcc5aa40b611a93975c80208b840538d4450e0))
-
-- Add token for action
-  ([`85988bb`](https://github.com/bartei/rotary-controller-python/commit/85988bbfeb7fb239b453ca911db020b67e88010a))
-
-- Cleanup and startup optimizations
-  ([`9c5fbba`](https://github.com/bartei/rotary-controller-python/commit/9c5fbba964da48d0cf1922959518321369530f22))
-
-- Configure sync ratio properly when the encoder axis is configured as spindle mode
-  ([`0202432`](https://github.com/bartei/rotary-controller-python/commit/0202432492af654a3e4d9d95275f6903ecc6ec2b))
-
-- Continue els mode forms and more code improvements
-  ([`431b66f`](https://github.com/bartei/rotary-controller-python/commit/431b66f6edccb07dfd72a10f59afa8ee1fd9a7c3))
-
-- Corrections to the setup page
-  ([`ce9a7db`](https://github.com/bartei/rotary-controller-python/commit/ce9a7db0078e4ea332a6206aeeb2f407ec8582ad))
-
-- Description in README.md
-  ([`e7fad71`](https://github.com/bartei/rotary-controller-python/commit/e7fad7191320405afcc79d3e3e30395ae221029f))
-
-- Disable mouse pointer
-  ([`911968e`](https://github.com/bartei/rotary-controller-python/commit/911968eff492c07832c24f7fa9559b926cca1b1b))
-
-- Drop compatibility with Python <=3.9
-  ([`804200d`](https://github.com/bartei/rotary-controller-python/commit/804200d2381a011d59a86575249899a445ca932a))
-
-- Els mode wip
-  ([`02665f9`](https://github.com/bartei/rotary-controller-python/commit/02665f94e0ca4c372d774407ba9b701cc948564e))
-
-- Feed init
-  ([`41edeba`](https://github.com/bartei/rotary-controller-python/commit/41edeba56e0ae164a1b3294fabf33f3065e8c961))
-
-- Forgotten import in the main.py for hiding the cursor
-  ([`655eaac`](https://github.com/bartei/rotary-controller-python/commit/655eaac6f49cd7965f40ea4154c1bcf48826bc16))
-
-- Rename and cleanup cicd
-  ([`9bbc43f`](https://github.com/bartei/rotary-controller-python/commit/9bbc43fb808b4b36980be2462060021ae3f80fa2))
 
 - Test release
   ([`d48e51c`](https://github.com/bartei/rotary-controller-python/commit/d48e51c64efcfe4396e328e973ad0868b51c96c4))
@@ -56,19 +39,16 @@
 - Test uv with github
   ([`de3e60d`](https://github.com/bartei/rotary-controller-python/commit/de3e60d87fa94c745f89f15d50000227c51a2176))
 
-- Update dependenciea
-  ([`3faff4e`](https://github.com/bartei/rotary-controller-python/commit/3faff4e27ef3764f679b4dbf34232362eb7ab273))
 
-- Update dependencies and README.md
-  ([`b63cce6`](https://github.com/bartei/rotary-controller-python/commit/b63cce6b276bedb7a9c753a7c10fc0fe077cbead))
+## v1.0.9 (2024-12-13)
 
-- Working ELS mode to be tested carefully
-  ([`ab1d313`](https://github.com/bartei/rotary-controller-python/commit/ab1d3130bb4d0a0196ccc16d1f69c3d31b0a8f6f))
 
-### Chores
+## v1.0.8 (2024-12-13)
 
-- Cleanup README.md
-  ([`06da564`](https://github.com/bartei/rotary-controller-python/commit/06da564dc4d5f9acd9c0b41536ac01aacd0fb510))
+### Bug Fixes
+
+- Configure sync ratio properly when the encoder axis is configured as spindle mode
+  ([`0202432`](https://github.com/bartei/rotary-controller-python/commit/0202432492af654a3e4d9d95275f6903ecc6ec2b))
 
 
 ## v1.0.7 (2024-11-05)
@@ -166,7 +146,7 @@ BREAKING CHANGE: new communication and servo handling
 
 ci: Cleanup of cicd
 
-### Breaking Changes
+### BREAKING CHANGES
 
 - New communication and servo handling
 

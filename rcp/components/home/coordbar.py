@@ -37,7 +37,6 @@ class CoordBar(BoxLayout, SavingDispatcher):
 
     speed = NumericProperty(0)
     spindleMode = BooleanProperty(False)
-    stepsPerRev = NumericProperty(4096)
     stepsPerMM = NumericProperty(1000)
     offsets = ListProperty([0 for item in range(100)])
     syncButtonColor = ListProperty([0.3, 0.3, 0.3, 1])
@@ -79,6 +78,8 @@ class CoordBar(BoxLayout, SavingDispatcher):
         self.bind(speed=self.update_scaledPosition)
         self.bind(ratioNum=self.update_scaledPosition)
         self.bind(ratioDen=self.update_scaledPosition)
+        self.bind(syncRatioDen=self.set_sync_ratio)
+        self.bind(syncRatioNum=self.set_sync_ratio)
         self.update_scaledPosition(self, None)
         Clock.schedule_interval(self.speed_task, 1.0/25.0)
 
@@ -146,20 +147,20 @@ class CoordBar(BoxLayout, SavingDispatcher):
             return
         self.set_sync_ratio()
 
-    def update_scaledPosition(self, instance, value):
+    def update_scaledPosition(self, instance=None, value=None):
         if self.spindleMode:
             # When working in spindle mode we report the position in degrees
             self.scaledPosition = float(
                 self.position * Fraction(self.ratioNum, self.ratioDen) + self.offsets[self.app.currentOffset]
-            ) * 360.0
+            )
 
-            if self.scaledPosition > 360.0:
-                self.scaledPosition -= 360.0
-                self.position -= self.stepsPerRev
+            if self.scaledPosition > self.ratioNum:
+                self.scaledPosition -= self.ratioNum
+                self.position -= self.ratioDen
 
             if self.scaledPosition < 0:
-                self.scaledPosition += 360.0
-                self.position += self.stepsPerRev
+                self.scaledPosition += self.ratioNum
+                self.position += self.ratioDen
 
             self.formattedPosition = self.app.formats.angle_speed_format.format(self.speed)
             self.formattedSpeed = self.app.formats.position_format.format(self.scaledPosition)
@@ -200,9 +201,6 @@ class CoordBar(BoxLayout, SavingDispatcher):
         if self.stepsPerMM == 0 and not self.spindleMode:
             return
 
-        if self.stepsPerRev == 0 and self.spindleMode:
-            return
-
         current_time = time.time()
         steps_per_second = self.app.fast_data_values.get('scaleSpeed', [0] * SCALES_COUNT)[self.inputIndex]
         self.speed_history.append(steps_per_second)
@@ -210,7 +208,7 @@ class CoordBar(BoxLayout, SavingDispatcher):
 
         # Calculate Revs/Min for spindleMode
         if self.spindleMode:
-            self.speed = (avg_steps_per_second / self.stepsPerRev) * 60
+            self.speed = (avg_steps_per_second / self.ratioDen) * 60
 
         # Calculate feeds
         if not self.spindleMode:

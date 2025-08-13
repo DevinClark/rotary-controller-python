@@ -9,7 +9,7 @@
     width: 96
     size_hint_x: None
     text: root.name
-    font_size: self.height / 1.5
+    font_size: min(self.height / 1.5, self.width/1.5)
     font_style: "bold"
     background_color: [0.2, 1, 0.2, 1] if root.servoEnable else [0.3, 0.3, 0.3, 1]
     on_release: root.toggle_enable()
@@ -27,7 +27,7 @@
     Button:
       size_hint_y: 0.30
       font_name: "fonts/iosevka-regular.ttf"
-      font_size: 48
+      font_size: min(self.height / 1.5, self.width/5)
       font_style: "bold"
       background_color: [0.2, 0.2, 0.2, 1]
       color: app.formats.display_color
@@ -87,7 +87,7 @@
       halign: 'center'
       valign: 'middle'
       disabled: root.disableControls
-      on_release: Factory.Keypad().show(root, 'divisions')
+      on_release: Factory.Keypad(integer=True).show(root, 'divisions')
 
   BoxLayout:
     size_hint_x: None
@@ -131,4 +131,4 @@
         halign: 'center'
         valign: 'middle'
         disabled: root.disableControls
-        on_release: Factory.Keypad().show(root, 'index')
+        on_release: Factory.Keypad(integer=True).show(root, 'index')
