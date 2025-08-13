@@ -1,5 +1,5 @@
-#!/bin/sh
+#!/bin/env bash
 export KCFG_KIVY_KEYBOARD_MODE="systemanddock"
 export KCFG_KIVY_LOG_DIR="/var/log"
 
-./venv/bin/python ./rcp/main.py
+./.venv/bin/python ./rcp/main.py

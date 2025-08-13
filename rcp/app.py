@@ -3,6 +3,7 @@ from typing import List
 
 from kivy.app import App
 from kivy.clock import Clock
+from kivy.logger import Logger
 from kivy.core.audio import SoundLoader
 from kivy.properties import ObjectProperty, ConfigParserProperty, BooleanProperty, NumericProperty, ListProperty
 
@@ -11,7 +12,6 @@ from rcp.components.home.coordbar import CoordBar
 from rcp.components.home.home_page import HomePage
 from rcp.components.home.servobar import ServoBar
 from rcp.dispatchers.formats import FormatsDispatcher
-from rcp.main import log
 from rcp.network.models import NetworkInterface, Wireless
 from rcp.utils import communication, devices
 
@@ -68,6 +68,7 @@ class MainApp(App):
     def __init__(self, **kv):
         self.fast_data_values = dict()
         try:
+            Logger.info("Starting connection to " + self.serial_port)
             self.connection_manager = communication.ConnectionManager(
                 serial_device=self.serial_port,
                 baudrate=self.serial_baudrate,
@@ -76,7 +77,7 @@ class MainApp(App):
             self.device = devices.Global(connection_manager=self.connection_manager, base_address=0)
 
         except Exception as e:
-            log.error(f"Communication cannot be started, will try again: {e.__str__()}")
+            Logger.error(f"Communication cannot be started, will try again: {e.__str__()}")
 
         super().__init__(**kv)
 
@@ -123,7 +124,7 @@ class MainApp(App):
             self.fast_data_values = self.device['fastData'].refresh()
 
         except Exception as e:
-            log.error(f"No connection: {e.__str__()}")
+            Logger.error(f"No connection: {e.__str__()}")
             self.task_update.timeout = 2.0
             self.connection_manager.connected = False
 

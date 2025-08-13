@@ -4,11 +4,8 @@ from typing import Optional, List, Any
 from keke import ktrace, kev
 from rcp.utils import communication
 
-import logging
+from kivy.logger import Logger
 from pydantic import BaseModel
-
-log = logging.getLogger(__name__)
-
 
 class TypeDefinition(BaseModel):
     name: str
@@ -309,7 +306,7 @@ class BaseDevice:
 
                 self.dm.connected = True
             except Exception as e:
-                # log.debug(e.__str__())
+                Logger.debug(e.__str__())
                 self.dm.connected = False
                 return
 

@@ -99,14 +99,14 @@ if __name__ == "__main__":
 
     while True:
         time.sleep(0.5)
-        # values = device['fastData'].refresh()
-        # print(
-        #     device['executionInterval'],
-        #     device['executionIntervalPrevious'],
-        #     device['executionIntervalCurrent'],
-        #     device['executionCycles']
-        # )
-        values = device['servo'].refresh()
+        values = device['fastData'].refresh()
+        print(
+            device['executionInterval'],
+            device['executionIntervalPrevious'],
+            device['executionIntervalCurrent'],
+            device['executionCycles']
+        )
+        # values = device['servo'].refresh()
         print(values)
 
   # float maxSpeed;

@@ -9,6 +9,7 @@ from kivy.uix.screenmanager import Screen, ScreenManager, NoTransition
 from rcp.components.setup.scale_panel import ScalePanel
 from rcp.components.setup.servo_panel import ServoPanel
 from rcp.components.setup.formats_panel import FormatsPanel
+#from rcp.components.setup.logs_panel import LogsPanel
 
 log = Logger.getChild(__name__)
 kv_file = os.path.join(os.path.dirname(__file__), __file__.replace(".py", ".kv"))
@@ -47,5 +48,5 @@ class SetupScreenManager(ScreenManager):
 
         # Add Tab to allow reviewing the application logs
         # screen = Screen(name="logs")
-        # screen.add_widget(LogsPanel())
+        # screen.add_widget(LogsPanel(logs=app.logs))
         # self.add_widget(screen)

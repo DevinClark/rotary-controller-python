@@ -1,5 +1,4 @@
 version = 1
-revision = 1
 requires-python = ">=3.10, <4.0"
 
 [[package]]
@@ -748,7 +747,7 @@ wheels = [
 
 [[package]]
 name = "rcp"
-version = "1.0.16"
+version = "1.0.17"
 source = { editable = "." }
 dependencies = [
     { name = "cachetools" },
