@@ -1,6 +1,6 @@
 from keke import ktrace
 from kivy.base import EventLoop
-from kivy.logger import Logger, LOG_LEVELS
+from kivy.logger import Logger, LOG_LEVELS, KivyFormatter
 from kivy.core.window import Window
 import platform
 import asyncio
@@ -10,8 +10,9 @@ Logger.setLevel(LOG_LEVELS["debug"])
 log = Logger.getChild(__name__)
 
 Window.show_cursor = False
-#for h in log.root.handlers:
-#    h.formatter = KivyFormatter('%(asctime)s - %(name)s:%(lineno)s-%(funcName)s - %(levelname)s - %(message)s')
+
+for h in log.root.handlers:
+    h.formatter = KivyFormatter('%(asctime)s - %(name)s:%(lineno)s-%(funcName)s - %(levelname)s - %(message)s')
 
 if __name__ == "__main__":
     from rcp.app import MainApp
