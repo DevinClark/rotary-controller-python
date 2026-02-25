@@ -20,7 +20,7 @@ from rcp.components.setup.network_screen import NetworkScreen
 from rcp.components.setup.formats_screen import FormatsScreen
 
 from rcp.dispatchers.formats import FormatsDispatcher
-from rcp.network.models import NetworkInterface, Wireless
+#from rcp.network.models import NetworkInterface, Wireless
 from rcp.main import log
 from rcp.utils import communication, devices
 
