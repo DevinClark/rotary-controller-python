@@ -5,61 +5,72 @@
 <UpdateScreen>:
   formats: app.formats
   BoxLayout:
+    title: "Software Update"
     orientation: "vertical"
     padding: 10
+    spacing: 5
     ScreenHeader:
       text: "Software Update"
+      size_hint_y: None
+      height: 60
 
-    ScrollView:
-      do_scroll_x: False
-      do_scroll_y: True
-      GridLayout:
-        id: grid_layout
-        cols: 1
-        spacing: 1
-        size_hint_y: None
-        height: self.minimum_height
+    Button:
+      height: 60
+      size_hint_x: None
+      width: 250
+      text: "Update"
+      on_release: root.update()
+      size_hint_y: None
+    TitleItem:
+      name: "Update Status"
+      size_hint_y: None
+      height: 36
+    TextInput:
+      readonly: True
+      multiline: True
+      text: root.status
 
-        ButtonItem:
-          height: 60
-          name: "Currently installed release"
-          value: root.current_release
-        ButtonItem:
-          height: 60
-          name: "Refresh available releases"
-          value: "Refresh"
-          on_release:
-            root.schedule_refresh_releases()
+    # ScrollView:
+    #   do_scroll_x: False
+    #   do_scroll_y: True
+      # GridLayout:
+      #   id: grid_layout
+      #   cols: 1
+      #   spacing: 1
+      #   size_hint_y: None
+      #   height: self.minimum_height
 
-        BooleanItem:
-          height: 60
-          name: "Allow installation of experimental versions"
-          value: root.allow_experimental
-          on_value: root.allow_experimental = self.value
+        # ButtonItem:
+        #   height: 60
+        #   name: "Currently installed release"
+        #   value: root.current_release
+        # ButtonItem:
+        #   height: 60
+        #   name: "Refresh available releases"
+        #   value: "Refresh"
+        #   on_release:
+        #     root.schedule_refresh_releases()
 
-        DropDownItem:
-          height: 60
-          name: "Available releases"
-          options: root.releases
-          value: root.selected_release
-          on_value: root.selected_release = self.value
-        BoxLayout:
-          height: 60
-          size_hint_y: None
-          orientation: "horizontal"
-          Button:
-            text: "Install Selected Release"
-            disabled: not root.enable_update_button
-            on_release: root.install_release()
-          Button:
-            text: "Exit Application"
-            on_release: app.stop()
+        # BooleanItem:
+        #   height: 60
+        #   name: "Allow installation of experimental versions"
+        #   value: root.allow_experimental
+        #   on_value: root.allow_experimental = self.value
 
-        TitleItem:
-          name: "Update Status"
-        TextInput:
-          size_hint_y: None
-          height: 200
-          readonly: True
-          multiline: True
-          text: root.status
+        # DropDownItem:
+        #   height: 60
+        #   name: "Available releases"
+        #   options: root.releases
+        #   value: root.selected_release
+        #   on_value: root.selected_release = self.value
+        # BoxLayout:
+        #   height: 60
+        #   size_hint_y: None
+        #   orientation: "horizontal"
+        #   Button:
+        #     text: "Install Selected Release"
+        #     disabled: not root.enable_update_button
+        #     on_release: root.install_release()
+        #   Button:
+        #     text: "Exit Application"
+        #     on_release: app.stop()

@@ -31,7 +31,7 @@ class UpdateScreen(Screen):
 
     def __init__(self, **kv):
         super().__init__(**kv)
-        self.schedule_refresh_releases()
+        # self.schedule_refresh_releases()
         self.status = ""
 
     def schedule_refresh_releases(self):
@@ -123,6 +123,70 @@ class UpdateScreen(Screen):
         btn_confirm.bind(on_release=lambda _: (popup.dismiss(), self._do_install()))
 
         popup.open()
+
+    def update(self):
+        log.info("User wants to update to the latest release!")
+        Clock.schedule_once(lambda dt: asyncio.ensure_future(self._do_update()))
+
+    async def _do_update(self):
+        # dry-run check: if local HEAD matches the remote upstream there is
+        # nothing for us to do.  We avoid executing *any* of the commands
+        # below (including `git pull`) in that case so that `uv sync` and
+        # `reboot` are skipped completely.
+        self.update_status("Checking for remote updates...")
+        try:
+            subprocess.check_call("git fetch", shell=True,
+                                  stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL)
+            local = subprocess.check_output(
+                "git rev-parse HEAD", shell=True
+            ).decode().strip()
+            remote = subprocess.check_output(
+                "git rev-parse @{u}", shell=True
+            ).decode().strip()
+        except subprocess.CalledProcessError as e:
+            log.error(f"error talking to git: {e}")
+            self.update_status(f"git check failed: {e}")
+            return
+        except Exception as e:  # upstream may not exist
+            log.error(f"unexpected error checking git heads: {e}")
+            self.update_status(str(e))
+            return
+        if local == remote:
+            self.update_status("Repository already up-to-date; nothing to do.")
+            return
+
+        # updates are available; proceed with the usual sequence
+        commands = [
+            "git pull",
+            "uv sync",
+            "reboot",
+        ]
+
+        for c in commands:
+            self.update_status(f"run: {c}")
+            p = subprocess.Popen(
+                c,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            while p.poll() is None:
+                await asyncio.sleep(1)
+
+            output = p.stdout.read().decode()
+            log.info(output)
+            self.update_status(f"return code: {p.returncode}")
+            self.update_status(f"output: {output}")
+
+            if p.stderr is not None:
+                error = p.stderr.read().decode()
+                log.error(output)
+                self.update_status(f"err: {error}")
+
+            if p.returncode != 0:
+                return
 
     def _do_install(self):
         Clock.schedule_once(lambda dt: asyncio.ensure_future(self.perform_install(dt)))
