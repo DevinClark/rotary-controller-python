@@ -1,6 +1,6 @@
 #: import Factory kivy.factory.Factory
-#: import Keypad components.keypad
-#: import FeedsTablePopup components.home.feeds_table_popup
+#: import Keypad rcp.components.popups.keypad
+#: import FeedsTablePopup components.popups.feeds_table_popup
 
 <ElsBar>:
   orientation: "horizontal"
@@ -29,7 +29,7 @@
       valign: 'top'
     Button:
       size_hint_y: 0.30
-      font_name: "fonts/iosevka-regular.ttf"
+      font_name: app.formats.font_name
       font_size: self.height / 2
       font_style: "bold"
       background_color: [0.2, 0.2, 0.2, 1]
@@ -69,7 +69,7 @@
       valign: 'top'
     Button:
       size_hint_y: 0.7
-      font_name: "fonts/iosevka-regular.ttf"
+      font_name: app.formats.font_name
       font_size: self.height / 2
       font_style: "bold"
       background_color: [0.3, 0.3, 0.3, 1]

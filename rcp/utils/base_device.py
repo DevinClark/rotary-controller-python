@@ -2,10 +2,11 @@ import struct
 from typing import Optional, List, Any
 
 from keke import ktrace, kev
-from rcp.utils import communication
 
-from kivy.logger import Logger
 from pydantic import BaseModel
+from kivy.logger import Logger
+log = Logger.getChild(__name__)
+
 
 class TypeDefinition(BaseModel):
     name: str
@@ -22,63 +23,11 @@ class VariableDefinition(BaseModel):
     count: int = 1
 
 
-variable_definitions = [
-    TypeDefinition(
-        name="TIM_HandleTypeDef",
-        length=2,
-        struct_unpack_string="L",
-        read_function=communication.read_long,
-        write_function=communication.write_long
-    ),
-    TypeDefinition(
-        name="int16_t",
-        length=1,
-        struct_unpack_string="H",
-        read_function=communication.read_long,
-        write_function=communication.write_long
-    ),
-    TypeDefinition(
-        name="uint16_t",
-        length=1,
-        struct_unpack_string="h",
-        read_function=communication.read_unsigned,
-        write_function=communication.write_unsigned
-    ),
-    TypeDefinition(
-        name="bool",
-        length=1,
-        struct_unpack_string="h",
-        read_function=communication.read_unsigned,
-        write_function=communication.write_unsigned
-    ),
-    TypeDefinition(
-        name="uint32_t",
-        length=2,
-        struct_unpack_string="L",
-        read_function=communication.read_long,
-        write_function=communication.write_long
-    ),
-    TypeDefinition(
-        name="int32_t",
-        length=2,
-        struct_unpack_string="l",
-        read_function=communication.read_long,
-        write_function=communication.write_long
-    ),
-    TypeDefinition(
-        name="float",
-        length=2,
-        struct_unpack_string="f",
-        read_function=communication.read_float,
-        write_function=communication.write_float
-    ),
-]
-
-
 class BaseDevice:
     definition = ""
+    root_structure = False
 
-    def __init__(self, connection_manager, base_address):
+    def __init__(self, connection_manager, base_address=0):
         from rcp.utils.communication import ConnectionManager
         self.base_address = base_address
         self.size = 0
@@ -86,13 +35,11 @@ class BaseDevice:
         self.fast_data = dict()
         self.dm: ConnectionManager = connection_manager
         self.variables: List[VariableDefinition or BaseDevice] = []
+        self._variable_index: dict[str, VariableDefinition] = {}
         self.parse_addresses_from_definition()
 
     def __getitem__(self, key):
-        try:
-            var: VariableDefinition = [item for item in self.variables if item.name == key][0]
-        except Exception as e:
-            raise Exception(f"Variable with name: {key} not found ({e.__str__()})")
+        var = self._variable_index[key]
 
         if var.count > 1:
             list_type = list()
@@ -105,16 +52,12 @@ class BaseDevice:
             return var.type.read_function(self.dm, var.address + self.base_address)
 
     def __setitem__(self, key, value):
-        try:
-            var = [item for item in self.variables if item.name == key][0]
-        except Exception as e:
-            raise Exception(f"Variable with name: {key} not found ({e.__str__()})")
-
+        var = self._variable_index[key]
         var.type.write_function(self.dm, var.address + self.base_address, value, key)
         return
 
     @classmethod
-    def register_type(cls) -> TypeDefinition:
+    def register_type(cls, variable_definitions) -> TypeDefinition:
         current_address = 0
         size = 0
         name = None
@@ -136,43 +79,39 @@ class BaseDevice:
                 continue
 
             # Find type match
-            try:
-                identified_type = tokens[0]
-                identified_name = "".join(tokens[1:])
+            identified_type = tokens[0]
+            identified_name = "".join(tokens[1:])
 
-                matching_type = [
-                    item
-                    for item in variable_definitions
-                    if item.name == identified_type
-                ][0]
+            matching_type = [
+                item
+                for item in variable_definitions
+                if item.name == identified_type
+            ][0]
 
-                # Handle multi var definition separated by comma
-                if "," in identified_name:
-                    for name in identified_name.replace(" ", "").split(","):
-                        current_address = current_address + matching_type.length
-                        struct_unpack_string += matching_type.struct_unpack_string
-                        # size = current_address
-                    continue
+            # Handle multi var definition separated by comma
+            if "," in identified_name:
+                for name in identified_name.replace(" ", "").split(","):
+                    current_address = current_address + matching_type.length
+                    struct_unpack_string += matching_type.struct_unpack_string
+                    # size = current_address
+                continue
 
-                # Handle array definition
-                if "[" in identified_name:
-                    name, count = identified_name.split("[")
-                    count, _ = count.split("]")
-                    count = int(count)
+            # Handle array definition
+            if "[" in identified_name:
+                name, count = identified_name.split("[")
+                count, _ = count.split("]")
+                count = int(count)
 
-                    current_address += matching_type.length * count
-                    struct_unpack_string += matching_type.struct_unpack_string * count
-                    continue
+                current_address += matching_type.length * count
+                struct_unpack_string += matching_type.struct_unpack_string * count
+                continue
 
-                current_address = current_address + matching_type.length
-                struct_unpack_string += matching_type.struct_unpack_string
-            except Exception as e:
-                raise Exception(f"Unable to find a matching type for: {tokens[0]} ({e.__str__()})")
-
+            current_address = current_address + matching_type.length
+            struct_unpack_string += matching_type.struct_unpack_string
             size = current_address
 
         if name is None:
-            raise "Unable to identify the typedef name from the provided definition"
+            raise ValueError("Unable to identify the typedef name from the provided definition")
 
         return TypeDefinition(
             name=name,
@@ -208,7 +147,7 @@ class BaseDevice:
 
                 matching_type = [
                     item
-                    for item in variable_definitions
+                    for item in self.dm.definitions
                     if item.name == identified_type
                 ][0]
 
@@ -249,8 +188,9 @@ class BaseDevice:
                 self.struct_unpack_string += matching_type.struct_unpack_string
 
             except Exception as e:
-                raise Exception(f"Unable to find a matching type for: {tokens[0]}: {e.__str__()}")
+                raise ValueError(f"Unable to find a matching type for: {tokens[0]}: {str(e)}") from e
 
+        self._variable_index = {v.name: v for v in self.variables}
         self.size = current_address
 
     def set_fast_data(self, values: List):
@@ -306,7 +246,7 @@ class BaseDevice:
 
                 self.dm.connected = True
             except Exception as e:
-                Logger.debug(e.__str__())
+                log.debug(str(e))
                 self.dm.connected = False
                 return
 
