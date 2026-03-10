@@ -44,10 +44,12 @@
         #   height: 60
         #   name: "Currently installed release"
         #   value: root.current_release
+        #   help_file: "software_update.md"
         # ButtonItem:
         #   height: 60
         #   name: "Refresh available releases"
         #   value: "Refresh"
+        #   help_file: "software_update.md"
         #   on_release:
         #     root.schedule_refresh_releases()
 
@@ -56,11 +58,13 @@
         #   name: "Allow installation of experimental versions"
         #   value: root.allow_experimental
         #   on_value: root.allow_experimental = self.value
+        #   help_file: "software_update.md"
 
         # DropDownItem:
         #   height: 60
         #   name: "Available releases"
         #   options: root.releases
+        #   help_file: "software_update.md"
         #   value: root.selected_release
         #   on_value: root.selected_release = self.value
         # BoxLayout:

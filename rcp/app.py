@@ -6,7 +6,9 @@ from kivy.logger import Logger
 log = Logger.getChild(__name__)
 
 from rcp.components.appsettings import config
+from rcp.dispatchers.axis import AxisDispatcher
 from rcp.dispatchers.board import Board
+from rcp.dispatchers.els import ElsDispatcher
 from rcp.dispatchers.formats import FormatsDispatcher
 from rcp.dispatchers.scale import ScaleDispatcher
 from rcp.dispatchers.servo import ServoDispatcher
@@ -35,6 +37,10 @@ class MainApp(App):
     servo: ServoDispatcher = ObjectProperty()
 
     scales: list[ScaleDispatcher] = ListProperty()
+
+    axes: list[AxisDispatcher] = ListProperty()
+
+    els: ElsDispatcher = ObjectProperty()
 
     current_mode = ConfigParserProperty(
         defaultvalue=1, section="device", key="current_mode", config=config, val_type=int
@@ -79,15 +85,21 @@ class MainApp(App):
     def get_spindle_scale(self):
         return self.board.get_spindle_scale()
 
+    def get_spindle_axis(self):
+        return self.board.get_spindle_axis()
+
     def build(self):
         self.formats = FormatsDispatcher(id_override="0")
         self.board = Board(formats=self.formats, offset_provider=self)
 
 
 
-        # Backward compat aliases — most KV files use app.servo / app.scales
+        # Backward compat aliases — most KV files use app.servo / app.scales / app.axes
         self.servo = self.board.servo
         self.scales = list(self.board.scales)
+        self.axes = list(self.board.axes)
+
+        self.els = ElsDispatcher(id_override="0")
 
         self.beep()
 
