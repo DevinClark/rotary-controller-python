@@ -1,7 +1,7 @@
 #: import ScreenHeader rcp.components.widgets.screen_header
 
 <SetupButton@Button>:
-  font_size: 22
+  font_size: app.formats.font_size
 
 <SetupScreen>:
   BoxLayout:
@@ -44,3 +44,6 @@
       SetupButton:
         text: "Logs"
         on_release: app.manager.goto("logs")
+      SetupButton:
+        text: "Profiling"
+        on_release: app.manager.goto("profiling")

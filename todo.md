@@ -16,21 +16,19 @@
   - `tests/utils/test_platform.py`
 - Still missing test coverage for: `utils/ctype_calc.py`, `feeds.py`, `utils/base_device.py`, `utils/devices.py`, `dispatchers/circle_pattern.py`, `dispatchers/line_pattern.py`, `dispatchers/rect_pattern.py`
 
-### ~~New: Dev Branch Installation~~ RESOLVED
-- Update screen now supports installing the `dev` branch for testing pre-release features
-- Gated behind "Allow installation of experimental versions" toggle
-- Warning confirmation dialog before dev install
-- Tested with 11 dedicated tests in `tests/screens/test_update_screen.py`
+---
 
-### ~~New: Font Selection~~ RESOLVED
-- Added font picker screen (`rcp/components/screens/font_picker_screen.py`) following the ColorPickerScreen pattern
-- Added `FontItem` widget (`rcp/components/widgets/font_item.py`) following the ColorItem pattern
-- Font selection persisted via `font_name` property in `FormatsDispatcher`
-- Custom font applies to: `coordbar.kv`, `servobar.kv`, `elsbar.kv`, `jogbar.kv`
-- All other UI elements (global Label/Button rules, coords_overlay, formats_screen) remain hardcoded to iosevka
+## Refactoring
 
-### ~~New: Color/Font Picker Registration~~ RESOLVED
-- Fixed `color_picker` and `font_picker` screen references — stored on `self.app` (MainApp) instead of `self` (Manager) so KV `app.color_picker` / `app.font_picker` references work correctly
+### REFACTOR-1. Redesign Input/Axis Architecture
+- **Files:** `rcp/dispatchers/scale.py`, `rcp/dispatchers/axis.py`, `rcp/dispatchers/axis_transform.py`
+- **Issue:** The current split between ScaleDispatcher and AxisDispatcher is convoluted. ScaleDispatcher mixes raw encoder tracking with scaling, offsets, and formatting. AxisDispatcher then re-implements its own offset system on top, leading to double-offset bugs and tangled position-setting logic. The basePosition/scaledPosition distinction is a band-aid. Sync ratio computation is duplicated across both layers.
+- **Plan:**
+  1. Create a clean **InputDispatcher** that owns: raw encoder position tracking, ratio (ratioNum/ratioDen), unit scaling (formats.factor), and computes a single scaled value — no offsets, no formatting.
+  2. **AxisDispatcher** becomes the sole owner of: offsets, position formatting, sync ratio, spindle mode, speed display. It reads from one or more InputDispatchers via AxisTransform (identity or sum).
+  3. Remove ScaleDispatcher or reduce it to a thin backward-compat wrapper.
+  4. Rewrite tests for the new layering.
+- **Benefit:** Single source of truth for offsets, no double-counting, simpler position-set logic, clearer separation of concerns.
 
 ---
 
@@ -64,22 +62,27 @@
 
 ---
 
-## Performance
+## Performance (profiled on RPi3 — 5.7s capture)
 
-### 12. Redundant Device Writes from Multiple Bindings
-- **File:** `rcp/dispatchers/scale.py:73-74, 126-129`
-- **Issue:** `syncRatioDen` and `syncRatioNum` each trigger `set_sync_ratio` twice per change — once via `self.bind()` and once via `on_syncRatioNum`/`on_syncRatioDen` handlers. Writing to the device also re-triggers these callbacks.
-- **Action:** Remove the duplicate bindings (keep either `bind()` or `on_*` handlers, not both). Add debouncing or guard against re-entrant calls.
+### PERF-7. Redundant property writes in ServoDispatcher
+- **File:** `rcp/dispatchers/servo.py`
+- **Issue:** `on_update_tick()` writes `self.servoEnable` and `self.speed` every tick even when unchanged. Each triggers Kivy property dispatch chain.
+- **Action:** Compare before writing.
 
-### 13. Separate Speed Polling Loop
+### PERF-8. Duplicate factor bindings
+- **Files:** `rcp/dispatchers/scale.py`, `rcp/dispatchers/axis.py`
+- **Issue:** Both bind `formats.factor` to two separate callbacks. A single factor change fires both.
+- **Action:** Bind to one handler that calls both.
+
+### PERF-10. Separate Speed Polling Loop
 - **File:** `rcp/dispatchers/scale.py:76`
 - **Issue:** `speed_task` runs at 25fps via its own `Clock.schedule_interval`, independently from the main `update_tick` loop. Creates unnecessary overhead.
 - **Action:** Consolidate speed calculation into the main `update_tick` handler.
 
-### 14. No Save Debouncing
-- **File:** `rcp/dispatchers/saving_dispatcher.py:69-85`
-- **Issue:** Every property change triggers an immediate synchronous file write via `save_settings()`. Changing multiple properties in rapid succession writes the file multiple times.
-- **Action:** Add a debounce mechanism (e.g., `Clock.schedule_once` with a short delay).
+### PERF-11. Identity transform fast path
+- **File:** `rcp/dispatchers/axis.py`
+- **Issue:** `_update_position()` allocates a dict every tick, even for identity transforms (single scale, weight=1).
+- **Action:** Short-circuit for single-contribution transforms.
 
 ---
 
@@ -99,9 +102,16 @@
 
 ## Priority Order
 
-| Priority | Items | Effort |
-|----------|-------|--------|
-| P1 - Cleanup | #8 (dead code, TraceOutput bug) | Low |
-| P3 - Architecture | #5 (circular imports), #6 (comm methods), #7 (parser duplication) | High |
-| P3 - Performance | #12 (redundant writes), #13 (speed loop), #14 (save debouncing) | Medium |
-| P4 - Quality | #15 (test coverage gaps) | Medium |
+| Priority | Items | Effort | Impact |
+|----------|-------|--------|--------|
+| ~~P0 - Performance~~ | ~~PERF-1 (scene rebuild — 39% CPU)~~ | ~~Low~~ | ~~Critical~~ |
+| ~~P0 - Performance~~ | ~~PERF-2 (coords overlay visibility)~~ | ~~Low~~ | ~~High~~ |
+| P1 - Performance | PERF-3 (BaseDevice cache) | Low | Medium |
+| P1 - Performance | PERF-4 (text rendering guards) | Low | Medium |
+| P1 - Performance | PERF-5 (Fraction caching) | Medium | Medium |
+| P2 - Performance | PERF-6 (save debouncing) | Low | Medium |
+| P2 - Performance | PERF-7 to PERF-11 (misc) | Medium | Low-Medium |
+| **P0 - Refactor** | **REFACTOR-1 (Input/Axis redesign)** | **High** | **Critical** |
+| P1 - Cleanup | #8 (dead code, TraceOutput bug) | Low | - |
+| P3 - Architecture | #5, #6, #7 | High | - |
+| P4 - Quality | #15 (test coverage gaps) | Medium | - |

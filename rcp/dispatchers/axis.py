@@ -2,9 +2,8 @@
 AxisDispatcher — abstraction layer between raw scale inputs and the UI.
 
 An axis derives its value from one or more ScaleDispatchers via an
-AxisTransform (linear combination). It exposes scaledPosition,
-formattedPosition, sync ratio management, and offset management to
-the UI, replacing the direct ScaleDispatcher → CoordBar mapping.
+AxisTransform. It exposes scaledPosition, formattedPosition, sync ratio
+management, and offset management to the UI.
 """
 
 from fractions import Fraction
@@ -14,11 +13,10 @@ from kivy.properties import (
     BooleanProperty,
     ListProperty,
     NumericProperty,
-    ObjectProperty,
     StringProperty,
 )
 
-from rcp.dispatchers.axis_transform import AxisTransform
+from rcp.dispatchers.axis_transform import AxisTransform, TransformType
 from rcp.dispatchers.saving_dispatcher import SavingDispatcher
 
 log = Logger.getChild(__name__)
@@ -99,33 +97,23 @@ class AxisDispatcher(SavingDispatcher):
         if primary_idx < len(self.scales):
             self.scales[primary_idx].spindleMode = self.spindleMode
 
+    def _get_extra_save_data(self) -> dict:
+        """Include transform config in every save."""
+        return {"transform_config": self._transform.to_dict()}
+
     def _load_transform_config(self):
         """Load transform from persisted YAML (if available)."""
-        config = self._read_extra_config("transform_config")
-        if config:
+        from rcp.dispatchers.saving_dispatcher import read_settings
+        data = read_settings(self.filename)
+        if data and "transform_config" in data:
             try:
-                self._transform = AxisTransform.from_dict(config)
+                self._transform = AxisTransform.from_dict(data["transform_config"])
             except (KeyError, ValueError) as e:
                 log.error(f"Failed to load transform config for axis {self.axis_name}: {e}")
 
     def _save_transform_config(self):
         """Persist the transform config to the YAML file."""
-        self._write_extra_config("transform_config", self._transform.to_dict())
-
-    def _read_extra_config(self, key: str):
-        """Read extra config from the YAML settings file."""
-        from rcp.dispatchers.saving_dispatcher import read_settings
-        data = read_settings(self.filename)
-        if data and key in data:
-            return data[key]
-        return None
-
-    def _write_extra_config(self, key: str, value):
-        """Write extra config into the YAML settings file."""
-        from rcp.dispatchers.saving_dispatcher import read_settings, write_settings
-        data = read_settings(self.filename) or {}
-        data[key] = value
-        write_settings(self.filename, data, triggered_by=key)
+        self.save_settings()
 
     # ── Connection ───────────────────────────────────────────────────
 
@@ -144,10 +132,9 @@ class AxisDispatcher(SavingDispatcher):
         try:
             # Gather scaledPosition from contributing scales
             scale_positions = {}
-            for c in self._transform.contributions:
-                idx = c.input_index
+            for idx in self._transform.contributions:
                 if idx < len(self.scales):
-                    scale_positions[idx] = self.scales[idx].scaledPosition
+                    scale_positions[idx] = self.scales[idx].basePosition
 
             # Compute axis value through the transform
             raw_axis_value = self._transform.compute(scale_positions)
@@ -163,13 +150,18 @@ class AxisDispatcher(SavingDispatcher):
             if primary_idx < len(self.scales):
                 self.speed = self.scales[primary_idx].speed
 
-            # Format
+            # Format — only update StringProperty when text actually changes
+            # to avoid triggering Kivy texture regeneration on every tick
             if self.spindleMode:
-                self.formattedPosition = self.formats.angle_speed_format.format(self.speed)
-                self.formattedSpeed = self.formats.position_format.format(self.scaledPosition)
+                fp = self.formats.angle_speed_format.format(self.speed)
+                fs = self.formats.position_format.format(self.scaledPosition)
             else:
-                self.formattedPosition = self.formats.position_format.format(self.scaledPosition)
-                self.formattedSpeed = self.formats.speed_format.format(self.speed)
+                fp = self.formats.position_format.format(self.scaledPosition)
+                fs = self.formats.speed_format.format(self.speed)
+            if fp != self.formattedPosition:
+                self.formattedPosition = fp
+            if fs != self.formattedSpeed:
+                self.formattedSpeed = fs
         except Exception as e:
             log.error(f"Error updating axis {self.axis_name}: {e}")
 
@@ -184,10 +176,8 @@ class AxisDispatcher(SavingDispatcher):
 
         user_sync = Fraction(self.syncRatioNum, self.syncRatioDen)
 
-        # Decompose through the transform to get per-scale hardware ratios
-        hw_ratios = self._transform.decompose_sync_ratio(user_sync)
-
-        # Only write sync to the primary input (hardware constraint)
+        # Write sync to the primary input (hardware constraint).
+        # Weights are always 1, so the user sync ratio passes through directly.
         primary_idx = self._transform.primary_input
         if primary_idx < len(self.scales):
             scale = self.scales[primary_idx]
@@ -202,8 +192,7 @@ class AxisDispatcher(SavingDispatcher):
             else:
                 servo_ratio = Fraction(self.servo.ratioNum, self.servo.ratioDen)
 
-            hw_sync = hw_ratios.get(primary_idx, user_sync)
-            final_ratio = scale_ratio * hw_sync / servo_ratio
+            final_ratio = scale_ratio * user_sync / servo_ratio
             self.board.device['scales'][primary_idx]['syncRatioNum'] = final_ratio.numerator
             self.board.device['scales'][primary_idx]['syncRatioDen'] = final_ratio.denominator
 
@@ -242,30 +231,27 @@ class AxisDispatcher(SavingDispatcher):
 
     # ── Position set / zero ──────────────────────────────────────────
 
+    def _raw_axis_value(self) -> float:
+        """Current axis value before axis-level offset."""
+        scale_positions = {}
+        for idx in self._transform.contributions:
+            if idx < len(self.scales):
+                scale_positions[idx] = self.scales[idx].basePosition
+        return self._transform.compute(scale_positions)
+
     def set_current_position(self, value):
         """Set the axis to display the given value by adjusting offsets."""
         current_offset = self.offset_provider.currentOffset
-        self._previous_position = self.scaledPosition
-        self._motion_detected = False
 
-        if current_offset == 0:
-            # For offset 0: reverse through the transform to set scale positions
-            scale_positions = {}
-            for c in self._transform.contributions:
-                if c.input_index < len(self.scales):
-                    scale_positions[c.input_index] = self.scales[c.input_index].scaledPosition
-            new_positions = self._transform.reverse_position_set(value, scale_positions)
-
-            # Set each contributing scale to its new position
+        if self._transform.transform_type == TransformType.IDENTITY and current_offset == 0:
+            # Identity axis, offset 0: set the underlying scale directly
             primary_idx = self._transform.primary_input
             if primary_idx < len(self.scales):
-                self.scales[primary_idx].set_current_position(
-                    new_positions[primary_idx]
-                )
+                self.scales[primary_idx].set_current_position(value)
             self.offsets[current_offset] = 0
         else:
-            # For non-zero offsets: use axis-level offset
-            self.offsets[current_offset] = value - (self.scaledPosition - self.offsets[current_offset])
+            # SUM axis (any offset) or non-zero offset: store axis-level offset
+            self.offsets[current_offset] = value - self._raw_axis_value()
             self.save_settings()
 
         self._update_position()
@@ -277,17 +263,11 @@ class AxisDispatcher(SavingDispatcher):
             Keypad().show_with_callback(self.set_current_position, self.scaledPosition)
 
     def zero_position(self):
-        """Zero the axis, or restore previous position on second press."""
-        if not hasattr(self, '_motion_detected'):
-            self._motion_detected = True
-        if not hasattr(self, '_previous_position'):
-            self._previous_position = 0
+        """Zero the axis, saving the current position for undo."""
+        self._previous_position = self.scaledPosition
+        self.set_current_position(0)
 
-        if self._motion_detected:
-            self.set_current_position(0)
-        else:
+    def undo_zero(self):
+        """Restore the position saved before the last zero operation."""
+        if hasattr(self, '_previous_position'):
             self.set_current_position(self._previous_position)
-
-    # This is checked by speed_task on scales to set motion_detected
-    def notify_motion(self):
-        self._motion_detected = True

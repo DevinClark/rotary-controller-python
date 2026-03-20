@@ -32,6 +32,7 @@ class ScaleDispatcher(SavingDispatcher):
     stepsPerMM = NumericProperty(1000)
     offsets = ListProperty([0 for item in range(100)])
     syncButtonColor = ListProperty([0.3, 0.3, 0.3, 1])
+    basePosition = NumericProperty(0)
     scaledPosition = NumericProperty(0)
     formattedPosition = StringProperty("--")
     formattedSpeed = StringProperty("--")
@@ -40,6 +41,7 @@ class ScaleDispatcher(SavingDispatcher):
         "position",
         "syncEnable",
         "speed",
+        "basePosition",
         "scaledPosition",
         "encoderPrevious",
         "encoderCurrent",
@@ -54,11 +56,11 @@ class ScaleDispatcher(SavingDispatcher):
         self.formats = formats
         self.servo = servo
         self.offset_provider = offset_provider
+        self._updating_scaled = False
         super().__init__(**kv)
 
         self.speed_history = collections.deque(maxlen=25)
         self.previous_position = 0
-        self.motion_detected = True
         self.previous_axis_time: float = 0
         self.previous_axis_pos: Decimal = Decimal(0)
         self.offset_provider.bind(currentOffset=self.update_scaledPosition)
@@ -67,7 +69,6 @@ class ScaleDispatcher(SavingDispatcher):
         self.board.bind(connected=self.init_connection)
         self.board.bind(update_tick=self.on_update_tick)
         self.bind(position=self.update_scaledPosition)
-        self.bind(speed=self.update_scaledPosition)
         self.bind(ratioNum=self.update_scaledPosition)
         self.bind(ratioDen=self.update_scaledPosition)
         self.bind(syncRatioDen=self.set_sync_ratio)
@@ -123,41 +124,41 @@ class ScaleDispatcher(SavingDispatcher):
         self.board.device['scales'][self.inputIndex]['syncRatioNum'] = final_ratio.numerator
         self.board.device['scales'][self.inputIndex]['syncRatioDen'] = final_ratio.denominator
 
-    def on_syncRatioNum(self, instance, value):
-        self.set_sync_ratio()
-
-    def on_syncRatioDen(self, instance, value):
-        self.set_sync_ratio()
-
     def update_scaledPosition(self, instance=None, value=None):
-        current_offset = self.offset_provider.currentOffset
-        if self.spindleMode:
-            self.scaledPosition = float(
-                self.position * Fraction(self.ratioNum, self.ratioDen) + self.offsets[current_offset]
-            )
+        if self._updating_scaled:
+            return
+        self._updating_scaled = True
+        try:
+            current_offset = self.offset_provider.currentOffset
+            ratio = Fraction(self.ratioNum, self.ratioDen)
+            if self.spindleMode:
+                base = float(self.position * ratio)
+                scaled = float(self.position * ratio + self.offsets[current_offset])
 
-            if self.scaledPosition > self.ratioNum:
-                self.scaledPosition -= self.ratioNum
-                self.position -= self.ratioDen
+                # Wrap into [0, ratioNum) using modular arithmetic so we
+                # adjust self.position at most once (no recursive re-entry).
+                if self.ratioNum > 0:
+                    wrapped = scaled % self.ratioNum
+                    if wrapped != scaled:
+                        n = round((scaled - wrapped) / self.ratioNum)
+                        self.position -= n * self.ratioDen
+                        scaled = wrapped
+                        base = float(self.position * ratio)
 
-            if self.scaledPosition < 0:
-                self.scaledPosition += self.ratioNum
-                self.position += self.ratioDen
-
-            self.formattedPosition = self.formats.angle_speed_format.format(self.speed)
-            self.formattedSpeed = self.formats.position_format.format(self.scaledPosition)
-        else:
-            self.scaledPosition = float(
-                self.position * Fraction(self.ratioNum, self.ratioDen) + self.offsets[current_offset]
-            ) * self.formats.factor
-
-            self.formattedPosition = self.formats.position_format.format(self.scaledPosition)
-            self.formattedSpeed = self.formats.speed_format.format(self.speed)
+                self.basePosition = base
+                self.scaledPosition = scaled
+            else:
+                base = float(self.position * ratio) * self.formats.factor
+                self.basePosition = base
+                self.scaledPosition = float(
+                    self.position * ratio + self.offsets[current_offset]
+                ) * self.formats.factor
+        finally:
+            self._updating_scaled = False
 
     def set_current_position(self, value):
         current_offset = self.offset_provider.currentOffset
         self.previous_position = self.scaledPosition
-        self.motion_detected = False
         if current_offset == 0:
             self.position = float(value / self.formats.factor / Fraction(self.ratioNum, self.ratioDen))
             self.offsets[current_offset] = 0
@@ -174,10 +175,10 @@ class ScaleDispatcher(SavingDispatcher):
             Keypad().show_with_callback(self.set_current_position, self.scaledPosition)
 
     def zero_position(self):
-        if self.motion_detected:
-            self.set_current_position(0)
-        else:
-            self.set_current_position(self.previous_position)
+        self.set_current_position(0)
+
+    def undo_zero(self):
+        self.set_current_position(self.previous_position)
 
     def speed_task(self, *args, **kv):
         if self.board.fast_data_values is None:
@@ -190,9 +191,6 @@ class ScaleDispatcher(SavingDispatcher):
         steps_per_second = self.board.fast_data_values.get('scaleSpeed', [0] * SCALES_COUNT)[self.inputIndex]
         self.speed_history.append(steps_per_second)
         avg_steps_per_second = (sum(self.speed_history) / len(self.speed_history))
-
-        if steps_per_second > 0:
-            self.motion_detected = True
 
         if self.spindleMode:
             self.speed = (avg_steps_per_second / self.ratioDen) * 60

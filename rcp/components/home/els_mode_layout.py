@@ -1,3 +1,4 @@
+from kivy.clock import Clock
 from kivy.properties import StringProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
@@ -15,6 +16,7 @@ ICON_CCW = "\uf0e2"  # rotate-left
 ICON_STOP = "\uf04d"  # stop
 
 MAX_ROW_HEIGHT = 150
+LONG_PRESS_THRESHOLD = 1.0
 
 
 class ElsSpindleInfo(BoxLayout):
@@ -26,31 +28,54 @@ class ElsSpindleInfo(BoxLayout):
     def __init__(self, **kwargs):
         from rcp.app import MainApp
         self.app: MainApp = MainApp.get_running_app()
+        self._long_press_event = None
         super().__init__(**kwargs)
         self.app.board.bind(update_tick=self._update_spindle)
 
     def _update_spindle(self, *args):
         axis = self.app.els.get_spindle_axis()
         if axis is None:
-            self.spindle_rpm = "--"
-            self.spindle_position = "--"
-            self.direction_icon = ICON_STOP
+            if self.spindle_rpm != "--":
+                self.spindle_rpm = "--"
+            if self.spindle_position != "--":
+                self.spindle_position = "--"
+            if self.direction_icon != ICON_STOP:
+                self.direction_icon = ICON_STOP
             return
 
-        self.spindle_rpm = axis.formattedPosition
-        self.spindle_position = self.app.formats.position_format.format(axis.scaledPosition) + "\u00b0"
+        rpm = axis.formattedPosition
+        if rpm != self.spindle_rpm:
+            self.spindle_rpm = rpm
+
+        pos = self.app.formats.position_format.format(axis.scaledPosition) + "\u00b0"
+        if pos != self.spindle_position:
+            self.spindle_position = pos
 
         if axis.speed > 0.5:
-            self.direction_icon = ICON_CW
+            icon = ICON_CW
         elif axis.speed < -0.5:
-            self.direction_icon = ICON_CCW
+            icon = ICON_CCW
         else:
-            self.direction_icon = ICON_STOP
+            icon = ICON_STOP
+        if icon != self.direction_icon:
+            self.direction_icon = icon
 
-    def zero_spindle(self):
+    def on_zero_press(self):
+        self._long_press_event = Clock.schedule_once(self._do_undo_zero, LONG_PRESS_THRESHOLD)
+
+    def on_zero_release(self):
+        if self._long_press_event is not None:
+            self._long_press_event.cancel()
+            self._long_press_event = None
+            axis = self.app.els.get_spindle_axis()
+            if axis is not None:
+                axis.zero_position()
+
+    def _do_undo_zero(self, dt):
+        self._long_press_event = None
         axis = self.app.els.get_spindle_axis()
         if axis is not None:
-            axis.zero_position()
+            axis.undo_zero()
 
 
 class ElsModeLayout(ModeLayout):
