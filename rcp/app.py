@@ -2,7 +2,7 @@ import os
 
 from kivy.app import App
 from kivy.config import Config
-from kivy.properties import ObjectProperty, ConfigParserProperty, NumericProperty, ListProperty, StringProperty
+from kivy.properties import ObjectProperty, ConfigParserProperty, NumericProperty, ListProperty, StringProperty, BooleanProperty
 from kivy.logger import Logger
 log = Logger.getChild(__name__)
 
@@ -11,7 +11,7 @@ from rcp.dispatchers.axis import AxisDispatcher
 from rcp.dispatchers.board import Board
 from rcp.dispatchers.els import ElsDispatcher
 from rcp.dispatchers.formats import FormatsDispatcher
-from rcp.dispatchers.scale import ScaleDispatcher
+from rcp.dispatchers.input import InputDispatcher
 from rcp.dispatchers.servo import ServoDispatcher
 
 
@@ -28,6 +28,7 @@ class MainApp(App):
         defaultvalue="ABS", section="global", key="abs_inc", config=config, val_type=str
     )
     currentOffset = NumericProperty(0)
+    abs_mode = BooleanProperty(False)
 
     tool = NumericProperty(0)
 
@@ -37,7 +38,10 @@ class MainApp(App):
 
     servo: ServoDispatcher = ObjectProperty()
 
-    scales: list[ScaleDispatcher] = ListProperty()
+    inputs: list[InputDispatcher] = ListProperty()
+
+    # Backward compat alias for KV files that reference app.scales
+    scales: list[InputDispatcher] = ListProperty()
 
     axes: list[AxisDispatcher] = ListProperty()
 
@@ -83,9 +87,6 @@ class MainApp(App):
     def set_mode(self, mode_id: int):
         self.current_mode = mode_id
 
-    def get_spindle_scale(self):
-        return self.board.get_spindle_scale()
-
     def get_spindle_axis(self):
         return self.board.get_spindle_axis()
 
@@ -95,9 +96,10 @@ class MainApp(App):
 
 
 
-        # Backward compat aliases — most KV files use app.servo / app.scales / app.axes
+        # Backward compat aliases — most KV files use app.servo / app.inputs / app.axes
         self.servo = self.board.servo
-        self.scales = list(self.board.scales)
+        self.inputs = list(self.board.inputs)
+        self.scales = list(self.board.inputs)  # backward compat alias
         self.axes = list(self.board.axes)
 
         self.els = ElsDispatcher(id_override="0")
