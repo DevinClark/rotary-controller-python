@@ -1,6 +1,6 @@
 #: import Factory kivy.factory.Factory
 #: import Keypad rcp.components.popups.keypad
-#: import FeedsTablePopup rcp.components.popups.feeds_table_popup
+#: import AutoSizeButton rcp.components.widgets.auto_size_button
 
 <ElsBar>:
   orientation: "horizontal"
@@ -24,17 +24,17 @@
       text_size: self.size
       size_hint_y: 0.15
       font_size: 16
-      color: app.display_color
+      color: app.formats.display_color
       halign: 'center'
       valign: 'top'
-    Button:
+    AutoSizeButton:
       size_hint_y: 0.30
       font_name: app.formats.font_name
-      font_size: self.height / 2
+      max_font_size: self.height / 2
       font_style: "bold"
       background_color: [0.2, 0.2, 0.2, 1]
       color: app.formats.display_color
-      text: app.servo.formattedPosition + " deg"
+      text: app.servo.formattedPosition + "\u00b0"
       text_size: self.size
       halign: 'center'
       valign: 'middle'
